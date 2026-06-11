@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import SiriWave from "siriwave";
 import type { SummaryFeedback } from "@speaking-practice/types";
 import type { StartedSession } from "./SelectionScreen";
 import { backgroundFor } from "../theme";
@@ -11,14 +12,12 @@ interface Props {
 
 type Status = "idle" | "recording" | "submitting";
 
-/** 秒数を mm:ss 形式に整形する */
 function formatTime(totalSec: number): string {
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-/** マイクアイコン（インライン SVG） */
 function MicIcon() {
   return (
     <svg
@@ -38,17 +37,6 @@ function MicIcon() {
   );
 }
 
-/** 録音中に表示する波形バー（CSS アニメーション） */
-function Waveform() {
-  return (
-    <div className="waveform" aria-hidden="true">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className="wave-bar" />
-      ))}
-    </div>
-  );
-}
-
 export function SessionScreen({ session, onEnd }: Props) {
   const [question, setQuestion] = useState(session.question);
   const [turnId, setTurnId] = useState(session.turnId);
@@ -63,6 +51,12 @@ export function SessionScreen({ session, onEnd }: Props) {
   const timerRef = useRef<number | null>(null);
   const pendingEndRef = useRef(false);
 
+  // SiriWave
+  const siriContainerRef = useRef<HTMLDivElement | null>(null);
+  const siriWaveRef = useRef<SiriWave | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
   const stopTimer = () => {
     if (timerRef.current !== null) {
       clearInterval(timerRef.current);
@@ -70,7 +64,17 @@ export function SessionScreen({ session, onEnd }: Props) {
     }
   };
 
-  // マウント時にマイクを確保。リロード時は state を保持しないためセッションは終了する。
+  const stopAudioAnalysis = () => {
+    if (animFrameRef.current !== null) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    siriWaveRef.current?.setAmplitude(0);
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+  };
+
+  // マイクを確保
   useEffect(() => {
     let cancelled = false;
     let localStream: MediaStream | null = null;
@@ -96,10 +100,58 @@ export function SessionScreen({ session, onEnd }: Props) {
     return () => {
       cancelled = true;
       stopTimer();
+      stopAudioAnalysis();
       if (localStream) localStream.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
   }, []);
+
+  // SiriWave を初期化（マウント後に1回だけ）
+  useEffect(() => {
+    const container = siriContainerRef.current;
+    if (!container) return;
+
+    const wave = new SiriWave({
+      container,
+      width: container.clientWidth || 300,
+      height: 80,
+      style: "ios9",
+      speed: 0.06,
+      amplitude: 0,
+      autostart: true,
+    });
+    siriWaveRef.current = wave;
+
+    return () => {
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+      siriWaveRef.current = null;
+    };
+  }, []);
+
+  const startAudioAnalysis = () => {
+    const stream = streamRef.current;
+    if (!stream) return;
+
+    const audioCtx = new AudioContext();
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
+    source.connect(analyser);
+    audioCtxRef.current = audioCtx;
+
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    const loop = () => {
+      analyser.getByteFrequencyData(dataArray);
+      const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+      siriWaveRef.current?.setAmplitude(Math.min(avg / 80, 1));
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+    animFrameRef.current = requestAnimationFrame(loop);
+  };
 
   const doEndSession = async () => {
     setEnding(true);
@@ -141,31 +193,31 @@ export function SessionScreen({ session, onEnd }: Props) {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
     recorder.onstop = () => {
-      // 録音停止後、自動で回答を送信する
       void handleSubmit();
     };
     recorderRef.current = recorder;
     recorder.start();
     setStatus("recording");
 
-    // 録音経過時間の計測を開始
     setElapsedSec(0);
     timerRef.current = window.setInterval(() => {
       setElapsedSec((s) => s + 1);
     }, 1000);
+
+    startAudioAnalysis();
   };
 
   const handleRecordStop = () => {
     stopTimer();
+    stopAudioAnalysis();
     const recorder = recorderRef.current;
     if (recorder && recorder.state === "recording") {
-      recorder.stop(); // onstop → handleSubmit が走る
+      recorder.stop();
     }
   };
 
   const handleEnd = () => {
     if (status === "recording") {
-      // 録音中は停止後に handleSubmit が完了してから終了する
       pendingEndRef.current = true;
       handleRecordStop();
       return;
@@ -201,6 +253,13 @@ export function SessionScreen({ session, onEnd }: Props) {
         <p className="question-label">面接官からの質問</p>
         <h2 className="question">{question}</h2>
 
+        {/* SiriWave コンテナ：常にDOMにある、録音中だけ表示 */}
+        <div
+          ref={siriContainerRef}
+          className={`siri-wave-container${status === "recording" ? " active" : ""}`}
+          aria-hidden="true"
+        />
+
         <div className="record-area">
           <button
             type="button"
@@ -209,15 +268,11 @@ export function SessionScreen({ session, onEnd }: Props) {
             disabled={status === "submitting" || ending}
             onClick={handleRecordToggle}
           >
-            {status === "recording" ? (
-              <>
-                <Waveform />
-                <span className="record-timer">{formatTime(elapsedSec)}</span>
-              </>
-            ) : (
-              <MicIcon />
-            )}
+            <MicIcon />
           </button>
+          {status === "recording" && (
+            <span className="record-timer">{formatTime(elapsedSec)}</span>
+          )}
           <p className="record-hint">{recordHint}</p>
         </div>
 

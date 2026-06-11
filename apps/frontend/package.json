@@ -13,7 +13,8 @@
   "dependencies": {
     "@speaking-practice/types": "workspace:*",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "siriwave": "^2.4.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

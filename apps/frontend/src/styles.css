@@ -243,48 +243,26 @@ button:disabled {
   height: 52px;
 }
 
-/* --- 録音中の波形 --- */
-.waveform {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 40px;
+/* --- SiriWave コンテナ --- */
+.siri-wave-container {
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: height 0.3s ease, opacity 0.3s ease;
+  background: transparent;
+  border-radius: 8px;
 }
 
-.wave-bar {
-  width: 5px;
-  height: 100%;
-  background: #fff;
-  border-radius: 3px;
-  transform-origin: center;
-  animation: wave 0.9s ease-in-out infinite;
+.siri-wave-container.active {
+  height: 80px;
+  opacity: 1;
+  margin-bottom: 8px;
 }
 
-.wave-bar:nth-child(1) {
-  animation-delay: 0s;
-}
-.wave-bar:nth-child(2) {
-  animation-delay: 0.15s;
-}
-.wave-bar:nth-child(3) {
-  animation-delay: 0.3s;
-}
-.wave-bar:nth-child(4) {
-  animation-delay: 0.45s;
-}
-.wave-bar:nth-child(5) {
-  animation-delay: 0.6s;
-}
-
-@keyframes wave {
-  0%,
-  100% {
-    transform: scaleY(0.3);
-  }
-  50% {
-    transform: scaleY(1);
-  }
+.siri-wave-container canvas {
+  display: block;
+  background: transparent !important;
 }
 
 .record-timer {

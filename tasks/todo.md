@@ -43,6 +43,27 @@ Lazywebの参考UI調査を踏まえたフロントエンドのビジュアル�
 
 ---
 
+# Codexレビュー指摘対応（2026-06-11）
+
+Codexレビューで検出された機能的バグの修正。
+
+## 計画
+
+- [ ] 1. 最終回答アップロード失敗時にセッションを終了しない（`SessionScreen.tsx:123-129`）
+  - `submitAnswer()` が失敗しても `finally` で `doEndSession()` が呼ばれる問題
+  - 失敗時はリトライできるよう、`pendingEndRef` の処理を見直す
+- [ ] 2. 選択したセッション時間を `SessionScreen` に引き継ぐ（`SelectionScreen.tsx:33-39`）
+  - `duration` が `StartedSession` から省かれており、カウントダウン・自動終了が未実装
+  - `StartedSession` 型に `duration_minutes` を追加し `SessionScreen` で使用する
+- [ ] 3. セッション開始時刻を正しく保存する（`session.ts:218-221`）
+  - `created_at` に `/session/end` 実行時刻が書き込まれている
+  - 開始タイムスタンプを Redis に保存し、終了時に再利用する
+- [ ] 4. `turn_id` の欠損・無効値バリデーションを追加する（`session.ts:139-141`）
+  - `turn_id` なし・非数値でも `0`/`NaN` で保存されてしまう
+  - `Number.isInteger(turnId)` チェックを文字起こし・保存前に追加する
+
+---
+
 # フロントエンドコードレビュー（2026-06-10）
 
 ## 計画
