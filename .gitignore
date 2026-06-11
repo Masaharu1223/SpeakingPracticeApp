@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Environment variables (never commit these)
+.env
+.env.local
+.env.*.local
+
+# Session data
+apps/backend/sessions/
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# Design research cache
+.lazyweb/
+
+# OS
+.DS_Store
