@@ -79,6 +79,13 @@ export function SessionScreen({ session, onEnd }: Props) {
     let cancelled = false;
     let localStream: MediaStream | null = null;
 
+    if (!navigator.mediaDevices?.getUserMedia) {
+      alert(
+        "マイクAPIが利用できません。HTTPSまたはlocalhost環境でご利用ください。",
+      );
+      return;
+    }
+
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
