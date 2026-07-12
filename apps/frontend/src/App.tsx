@@ -18,6 +18,15 @@ export function App() {
     case "selection":
       return (
         <div className="app">
+          <video
+            className="bg-video"
+            src="/interview-bg.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+          <div className="bg-video-overlay" />
           <SelectionScreen
             onStart={(session) => setScreen({ name: "session", session })}
           />
