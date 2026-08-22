@@ -46,6 +46,7 @@
 - セッション間の成長トラッキング
 - SSEによる質問文のストリーミング表示（MVP後に追加）
 - フィラー語のAI検出（正規表現から移行）
+- AI面接官のバーチャルフェイス（Live2D/3Dキャラクターによるリアルタイム表情・視線表現。専用レンダリングエンジン・3Dモデル制作が必要でMVPの範囲を大きく超えるため、将来ロードマップとしてメモのみ残す）
 
 ---
 
@@ -62,13 +63,21 @@
 |---|---|
 | フロントエンド | React + Vite（TypeScript） |
 | バックエンド | Fastify（TypeScript） |
-| STT | Whisper API |
-| AI質問生成・フィードバック | Claude API |
+| STT | OpenAI Whisper API（`whisper-1`、直接API経由） |
+| AI質問生成・フィードバック | Anthropic Claude API（`claude-sonnet-4-6`、直接API経由） |
 | サーバー側セッション保持 | Redis |
 | API通信スタイル | HTTP（REST） |
 | データ保存形式 | JSON |
 | モノレポ管理 | pnpm workspaces |
 | CI | GitHub Actions（型チェック・ESLint・ビルド確認） |
+
+### AIプロバイダ選定（2026-07-12検討・確定）
+
+Claude・WhisperともにAWS Bedrock経由ではなく直接APIを採用する。
+
+- **Claude**: Bedrock経由でも直接Anthropic API経由でも同一料金（標準リージョンで入力$3・出力$15 / 100万トークン、claude-sonnet-4-6時点）のため、Bedrockに移行してもコストメリットがない。
+- **Whisper**: BedrockにはWhisper相当のモデルが存在しない。AWSでSTTを行う場合はAmazon Transcribeとなるが、Whisper（$0.006/分）よりTranscribe（$0.024/分〜、大規模帯でも$0.0078/分まで）の方が高額なため不採用。
+- 将来AWSへインフラを全面集約する必要が生じた場合（IAM/VPC統合・データレジデンシー要件など）に再検討する。
 
 ---
 
